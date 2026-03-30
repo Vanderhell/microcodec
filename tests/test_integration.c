@@ -25,13 +25,11 @@ MTEST(integration_rle_varint_pipeline) {
     mc_buf_t rle_dst = MC_BUF(g_b, sizeof(g_b));
     mc_buf_t var_dst = MC_BUF(g_c, sizeof(g_c));
     uint32_t size_value = 0u;
-    mc_buf_t size_buf = MC_BUF((uint8_t *)&size_value, sizeof(size_value));
 
     memset(g_a, 0x00, 128u);
     MTEST_ASSERT_EQ(MC_OK, mc_rle_encode(MC_SLICE(g_a, 128u), &rle_dst));
     MTEST_ASSERT_EQ(MC_OK, mc_varint_encode_u32((uint32_t)rle_dst.len, &var_dst));
 
-    size_buf.len = sizeof(size_value);
     memcpy(&size_value, g_c, var_dst.len);
     MTEST_ASSERT_TRUE(rle_dst.len <= 2u);
 }

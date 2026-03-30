@@ -1,5 +1,34 @@
 #include "microcodec.h"
 
+#include <string.h>
+
+/* Dispatch works over byte slices, so typed payloads must not assume alignment. */
+
+static mc_err_t mc_encode_varint_dispatch(mc_slice_t src, mc_buf_t *dst) {
+    size_t count;
+    size_t i;
+
+    if ((dst == NULL) || (dst->ptr == NULL) || ((src.ptr == NULL) && (src.len > 0u))) {
+        return MC_ERR_INVALID;
+    }
+    if ((src.len % sizeof(uint32_t)) != 0u) {
+        return MC_ERR_INVALID;
+    }
+
+    count = src.len / sizeof(uint32_t);
+    for (i = 0u; i < count; ++i) {
+        uint32_t value = 0u;
+        mc_err_t err;
+        memcpy(&value, src.ptr + (i * sizeof(uint32_t)), sizeof(value));
+        err = mc_varint_encode_u32(value, dst);
+        if (err != MC_OK) {
+            return err;
+        }
+    }
+
+    return MC_OK;
+}
+
 static mc_err_t mc_decode_varint_dispatch(mc_slice_t src, mc_buf_t *dst) {
     size_t count = 0u;
     mc_slice_t cursor = src;
@@ -19,15 +48,43 @@ static mc_err_t mc_decode_varint_dispatch(mc_slice_t src, mc_buf_t *dst) {
             dst->len = 0u;
             return MC_ERR_OVERFLOW;
         }
-        ((uint32_t *)dst->ptr)[count++] = value;
+        memcpy(dst->ptr + (count * sizeof(uint32_t)), &value, sizeof(value));
+        count++;
     }
 
     dst->len = count * sizeof(uint32_t);
     return MC_OK;
 }
 
+static mc_err_t mc_encode_delta_dispatch(mc_slice_t src, mc_buf_t *dst) {
+    size_t count;
+    size_t i;
+    float values[4096];
+
+    if ((dst == NULL) || (dst->ptr == NULL) || ((src.ptr == NULL) && (src.len > 0u))) {
+        return MC_ERR_INVALID;
+    }
+    if ((src.len % sizeof(float)) != 0u) {
+        return MC_ERR_INVALID;
+    }
+
+    count = src.len / sizeof(float);
+    if (count > (sizeof(values) / sizeof(values[0]))) {
+        return MC_ERR_INVALID;
+    }
+
+    for (i = 0u; i < count; ++i) {
+        memcpy(&values[i], src.ptr + (i * sizeof(float)), sizeof(float));
+    }
+
+    return mc_delta_encode_f32(values, count, 1u, dst);
+}
+
 static mc_err_t mc_decode_delta_dispatch(mc_slice_t src, mc_buf_t *dst) {
     size_t count;
+    float values[4096];
+    size_t i;
+    mc_err_t err;
 
     if ((dst == NULL) || (dst->ptr == NULL) || (src.ptr == NULL) || (src.len < 4u)) {
         return MC_ERR_INVALID;
@@ -40,8 +97,20 @@ static mc_err_t mc_decode_delta_dispatch(mc_slice_t src, mc_buf_t *dst) {
     if ((count * sizeof(float)) > dst->cap) {
         return MC_ERR_OVERFLOW;
     }
+    if (count > (sizeof(values) / sizeof(values[0]))) {
+        return MC_ERR_INVALID;
+    }
 
-    return mc_delta_decode_f32(src, (float *)dst->ptr, count);
+    err = mc_delta_decode_f32(src, values, count);
+    if (err != MC_OK) {
+        return err;
+    }
+
+    for (i = 0u; i < count; ++i) {
+        memcpy(dst->ptr + (i * sizeof(float)), &values[i], sizeof(float));
+    }
+    dst->len = count * sizeof(float);
+    return MC_OK;
 }
 
 mc_err_t mc_encode(mc_alg_t alg, mc_slice_t src, mc_buf_t *dst, void *ctx) {
@@ -55,22 +124,14 @@ mc_err_t mc_encode(mc_alg_t alg, mc_slice_t src, mc_buf_t *dst, void *ctx) {
 #endif
         case MC_ALG_VARINT:
 #if MICROCODEC_ENABLE_VARINT
-            if ((src.len % sizeof(uint32_t)) != 0u) {
-                return MC_ERR_INVALID;
-            }
-            return mc_varint_encode_u32_array((const uint32_t *)src.ptr,
-                                              src.len / sizeof(uint32_t), dst);
+            return mc_encode_varint_dispatch(src, dst);
 #else
             (void)src; (void)dst; (void)ctx;
             return MC_ERR_DISABLED;
 #endif
         case MC_ALG_DELTA:
 #if MICROCODEC_ENABLE_DELTA
-            if ((src.len % sizeof(float)) != 0u) {
-                return MC_ERR_INVALID;
-            }
-            return mc_delta_encode_f32((const float *)src.ptr,
-                                       src.len / sizeof(float), 1u, dst);
+            return mc_encode_delta_dispatch(src, dst);
 #else
             (void)src; (void)dst; (void)ctx;
             return MC_ERR_DISABLED;
