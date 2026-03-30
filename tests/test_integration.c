@@ -134,6 +134,7 @@ MTEST(integration_max_encoded_size_positive) {
 MTEST(integration_timestamps_delta_varint_roundtrip) {
     mc_buf_t delta_dst = MC_BUF(g_a, sizeof(g_a));
     mc_buf_t var_dst = MC_BUF(g_b, sizeof(g_b));
+    uint32_t decoded[100];
     size_t bytes = 0u;
     size_t i;
 
@@ -143,8 +144,8 @@ MTEST(integration_timestamps_delta_varint_roundtrip) {
 
     MTEST_ASSERT_EQ(MC_OK, mc_delta_encode_u32(g_u32, 100u, 2u, &delta_dst));
     MTEST_ASSERT_EQ(MC_OK, mc_varint_encode_u32_array(g_u32, 100u, &var_dst));
-    MTEST_ASSERT_EQ(MC_OK, mc_varint_decode_u32_array(MC_SLICE(g_b, var_dst.len), (uint32_t *)g_c, 100u, &bytes));
-    MTEST_ASSERT_MEM_EQ(g_u32, g_c, 100u * sizeof(uint32_t));
+    MTEST_ASSERT_EQ(MC_OK, mc_varint_decode_u32_array(MC_SLICE(g_b, var_dst.len), decoded, 100u, &bytes));
+    MTEST_ASSERT_MEM_EQ(g_u32, decoded, 100u * sizeof(uint32_t));
 }
 
 MTEST(integration_delta_lzss_ratio_gt_three) {
