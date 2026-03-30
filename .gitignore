@@ -1,0 +1,38 @@
+# Build outputs
+/build/
+/out/
+/dist/
+/artifacts/
+
+# CMake
+CMakeUserPresets.json
+cmake-build-*/
+
+# IDE / editor
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Binaries and debug symbols
+*.obj
+*.o
+*.pdb
+*.ilk
+*.lib
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Test / coverage artifacts
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+coverage/
+
+# OS files
+Thumbs.db
+.DS_Store
