@@ -32,8 +32,8 @@ add_library(microcodec STATIC
 
 target_include_directories(microcodec PUBLIC include)
 
-add_library(microtest INTERFACE)
-target_include_directories(microtest INTERFACE tests)
+add_library(microcodec_test_support INTERFACE)
+target_include_directories(microcodec_test_support INTERFACE tests)
 
 option(MICROCODEC_BUILD_TESTS "Build tests" ON)
 
@@ -43,7 +43,7 @@ if(MICROCODEC_BUILD_TESTS)
     function(microcodec_add_test name source)
         if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
             add_executable(${name} ${source})
-            target_link_libraries(${name} PRIVATE microcodec microtest)
+            target_link_libraries(${name} PRIVATE microcodec microcodec_test_support)
             add_test(NAME ${name} COMMAND ${name})
         endif()
     endfunction()
